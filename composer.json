@@ -3,6 +3,7 @@
         "psr-4": {"App\\": "src/"}
     },
     "require": {
-        "doctrine/dbal": "^3.1"
+        "doctrine/dbal": "^3.1",
+        "symfony/console": "^5.3"
     }
 }
