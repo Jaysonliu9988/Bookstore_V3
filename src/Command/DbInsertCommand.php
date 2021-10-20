@@ -1,49 +1,91 @@
 <?php
 
-// src/Command/CreateUserCommand.php
-namespace App\Command;
-
+namespace App;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Question\Question;
+use Symfony\Component\Console\Question\ChoiceQuestion;
 
-class CreateUserCommand extends Command
+
+class DbInsertCommand extends Command
 {
-    // the name of the command (the part after "bin/console")
-    protected static $defaultName = 'app:create-user';
-    protected static $defaultDescription = 'Creates a new user.';
+    protected static $defaultName = 'db:insert';
+    protected static $defaultDescription = 'Insert the records.';
+
+    private $conn;
+
+    public function __construct(){
+        
+        $connectionParams = [
+            'url' => Database::getDatabaseUrl()
+        ];
+        $this->conn = \Doctrine\DBAL\DriverManager::getConnection($connectionParams);
+        parent::__construct();
+
+    }
 
     protected function configure(): void
     {
         $this
-            // If you don't like using the $defaultDescription static property,
-            // you can also define the short description using this method:
-            // ->setDescription('...')
-
-            // the command help shown when running the command with the "--help" option
-            ->setHelp('This command allows you to create a user...')
+            ->setHelp('Insert datas to a table.')
         ;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        // ... put here the code to create the user
+        
 
-        // this method must return an integer number with the "exit status code"
-        // of the command. You can also use these constants to make code more readable
+        $io = new SymfonyStyle($input, $output);
+        $sm = $this->conn->getSchemaManager();      
+        
+        $tables = $sm->listTables();
+        $tbs=[];
+        foreach ($tables as $key => $value) {
+            $tbs[]=$value->getName();
+        }
+        if(!$tbs){
 
-        // return this if there was no problem running the command
-        // (it's equivalent to returning int(0))
+            $io->error("NO Tables.");
+
+        }else{
+
+            
+            $helper = $this->getHelper('question');
+            $table = new ChoiceQuestion('Please select the table',
+            $tbs,0);
+            $table->setErrorMessage('Table %s is not exited.');
+            $table_name = $helper->ask($input, $output, $table);
+
+            //Get the columns
+            $columns = $sm->listTableColumns($table_name);
+            $insert_datas=[];
+            foreach ($columns as $column) {     
+                $columnname=$column->getName();
+                if($columnname!="id") $insert_datas[$column->getName()]=$this->getInputData($input,$output,$column->getName(),$io);
+                
+            }
+            $this->conn->insert($table_name,$insert_datas);
+            $io->success("Inserted successfully. use php index.php db:list to show the datas.");
+        }
+        
+        
         return Command::SUCCESS;
-
-        // or return this if some error happened during the execution
-        // (it's equivalent to returning int(1))
-        // return Command::FAILURE;
-
-        // or return this to indicate incorrect command usage; e.g. invalid options
-        // or missing arguments (it's equivalent to returning int(2))
-        // return Command::INVALID
     }
 
-    
+
+    protected function getInputData($input,$output,$column,$io){
+
+
+            $helper = $this->getHelper('question');
+            $question = new Question('Please enter the value of ['.$column.'] :');
+            $value = $helper->ask($input, $output, $question);
+            if(!$value){
+            $io->error('Please enter the '.$column);           
+            return $this->getInputData($input,$output,$column,$io);
+
+            }
+            return $value;
+    }
 }
