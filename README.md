@@ -1,4 +1,4 @@
-# BookStore-Console Question Helper app
+# PHP console app using symfony console and doctrine dbal
 
 * BookStore was built by composer.
 * Using Doctrine DBAL package.
